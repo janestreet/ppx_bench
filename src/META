@@ -1,0 +1,18 @@
+version = "113.09.00"
+description = "Syntax extension for writing in-line benchmarks in ocaml code"
+requires = "compiler-libs ppx_core ppx_driver ppx_type_conv ppx_inline_test ppx_bench.runtime-lib"
+archive(ppx_driver, byte          ) = "ppx_bench.cma"
+archive(ppx_driver, native        ) = "ppx_bench.cmxa"
+archive(ppx_driver, native, plugin) = "ppx_bench.cmxs"
+exists_if = "ppx_bench.cma"
+ppx = "./ppx.byte"
+
+package "runtime-lib" (
+ version = "113.09.00"
+ description = "Runtime library for ppx_bench"
+ requires = ""
+ archive(byte          ) = "ppx_bench_lib.cma"
+ archive(native        ) = "ppx_bench_lib.cmxa"
+ archive(native, plugin) = "ppx_bench_lib.cmxs"
+ exists_if = "ppx_bench_lib.cma"
+)
