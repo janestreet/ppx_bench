@@ -2,63 +2,8 @@ open StdLabels
 open Ppx_core.Std
 open Parsetree
 open Ast_builder.Default
-open Ppx_type_conv.Std
 
 [@@@metaloc loc]
-
-type bench_kind = Bench | Bench_fun
-
-type bench =
-  | Bench_exp of bench_kind * (string * expression) option * expression
-  | Bench_module of module_expr
-
-module E = struct
-  let indexed =
-    Attribute.declare
-      "bench.indexed"
-      Attribute.Context.pattern
-      Ast_pattern.
-        (single_expr_payload (pexp_apply (pexp_ident (lident (string "=")))
-                                (no_label (pexp_ident (lident __))
-                                 ^:: no_label __
-                                 ^:: nil)))
-      (fun var values -> (var, values))
-
-  let simple =
-    let open Ast_pattern in
-    pstr (pstr_value nonrecursive
-            (value_binding ~pat:(Attribute.pattern indexed (pstring __)) ~expr:__
-             ^:: nil)
-          ^:: nil)
-
-  let bench =
-    Extension.declare "bench" Extension.Context.structure_item
-      simple (fun i n e -> (n, Bench_exp (Bench, i, e)))
-
-  let bench_fun =
-    Extension.declare "bench_fun" Extension.Context.structure_item
-      simple (fun i n e -> (n, Bench_exp (Bench_fun, i, e)))
-
-  let bench_module =
-    Extension.declare "bench_module" Extension.Context.structure_item
-      Ast_pattern.(
-        pstr (pstr_value nonrecursive (value_binding
-                                         ~pat:(pstring __)
-                                         ~expr:(pexp_pack __)
-                                       ^:: nil)
-              ^:: nil)
-      )
-      (fun n x -> (n, Bench_module x))
-
-  let all =
-    [ bench
-    ; bench_fun
-    ; bench_module
-    ]
-
-end
-
-let libname () = Ppx_inline_test.libname ()
 
 type maybe_drop =
   | Keep
@@ -78,11 +23,11 @@ let maybe_drop loc code =
   match !drop_benches with
   | Keep     -> [%str let () = [%e code]]
   | Deadcode -> [%str let () = if false then [%e code] else ()]
-  | Remove   -> [%str ]
+  | Remove   -> Attribute.explicitly_drop#expression code; [%str ]
 
 let descr (loc : Location.t) ?(inner_loc=loc) () =
-  let filename  = Type_conv_path.get_default_path loc in
-  let line     = loc.loc_start.pos_lnum  in
+  let filename  = File_path.get_default_path loc in
+  let line      = loc.loc_start.pos_lnum  in
   let start_pos = loc.loc_start.pos_cnum - loc.loc_start.pos_bol in
   let end_pos   = inner_loc.Location.loc_end.pos_cnum - loc.loc_start.pos_bol in
   (estring ~loc filename,
@@ -113,13 +58,26 @@ let apply_to_descr_bench type_conv_path lid loc ?inner_loc e_opt name more_arg =
           [%e more_arg]
     ]
 
+type bench_kind = Bench | Bench_fun
+
 let thunk_bench kind e = match kind with
   | Bench_fun -> e
   | Bench -> let loc = e.pexp_loc in [%expr fun () -> [%e e]]
 
-let expand_bench path loc name bench =
-  match bench with
-  | Bench_exp (kind,None, e) ->
+let enabled () =
+  match Ppx_inline_test_libname.get () with
+  | None   -> false
+  | Some _ -> true
+
+let assert_enabled loc =
+  if not (enabled ()) then
+    Location.raise_errorf ~loc
+      "ppx_bench: extension is disabled as no -inline-test-lib was given"
+
+let expand_bench_exp ~loc ~path kind index name e =
+  assert_enabled loc;
+  match index with
+  | None ->
     (* Here and in the other cases below, because functions given to pa_bench can return
        any 'a, we add a dead call to ignore so we can get a warning if the user code
        mistakenly gives a partial application. *)
@@ -130,7 +88,7 @@ let expand_bench path loc name bench =
           Ppx_bench_lib.Benchmark_accumulator.Entry.Regular_thunk f
         end
       ]
-  | Bench_exp (kind,Some (var_name, args), e) ->
+  | Some (var_name, args) ->
     apply_to_descr_bench path "add_bench" loc (Some e) name
       [%expr
         let arg_values = [%e args]
@@ -144,51 +102,67 @@ let expand_bench path loc name bench =
             }
         end
       ]
-  | Bench_module m ->
-    apply_to_descr_bench path "add_bench_module" loc ~inner_loc:m.pmod_loc None name
-      (pexp_fun ~loc "" None (punit ~loc)
-         (pexp_letmodule ~loc (Located.mk ~loc "M")
-            m
-            (eunit ~loc)))
 
-let map ~expand = object
-  inherit Type_conv_path.map as super
+let expand_bench_module ~loc ~path name m =
+  assert_enabled loc;
+  apply_to_descr_bench path "add_bench_module" loc ~inner_loc:m.pmod_loc None name
+    (pexp_fun ~loc "" None (punit ~loc)
+       (pexp_letmodule ~loc (Located.mk ~loc "M")
+          m
+          (eunit ~loc)))
 
-  method! structure path st =
-    let st = super#structure path st in
-    List.fold_left st ~init:[] ~f:(fun acc item ->
-      match item.pstr_desc with
-      | Pstr_extension (ext, attrs) -> begin
-          match Extension.convert E.all ext with
-          | None -> item :: acc
-          | Some (name, bench) ->
-            assert_no_attributes attrs;
-            let loc = item.pstr_loc in
-            let more_st = expand path loc name bench in
-            more_st @ acc
-        end
-      | _ -> item :: acc)
-    |> List.rev
+module E = struct
+  let indexed =
+    Attribute.declare
+      "bench.indexed"
+      Attribute.Context.pattern
+      Ast_pattern.
+        (single_expr_payload (pexp_apply (pexp_ident (lident (string "=")))
+                                (no_label (pexp_ident (lident __))
+                                 ^:: no_label __
+                                 ^:: nil)))
+      (fun var values -> (var, values))
+
+  let simple =
+    let open Ast_pattern in
+    pstr (pstr_value nonrecursive
+            (value_binding ~pat:(Attribute.pattern indexed (pstring __)) ~expr:__
+             ^:: nil)
+          ^:: nil)
+
+  let bench =
+    Extension.V2.declare_inline "bench" Extension.Context.structure_item
+      simple (expand_bench_exp Bench)
+
+  let bench_fun =
+    Extension.V2.declare_inline "bench_fun" Extension.Context.structure_item
+      simple (expand_bench_exp Bench_fun)
+
+  let bench_module =
+    Extension.V2.declare_inline "bench_module" Extension.Context.structure_item
+      Ast_pattern.(
+        pstr (pstr_value nonrecursive (value_binding
+                                         ~pat:(pstring __)
+                                         ~expr:(pexp_pack __)
+                                       ^:: nil)
+              ^:: nil)
+      )
+      expand_bench_module
+
+  let all =
+    [ bench
+    ; bench_fun
+    ; bench_module
+    ]
 end
 
-let enabled = map ~expand:expand_bench
-
-let disabled =
-  map ~expand:(fun _path loc _name _bench ->
-    Location.raise_errorf ~loc
-      "ppx_bench: extension is disabled as no -inline-test-lib was given")
-;;
-
 let () =
-  Ppx_driver.register_code_transformation
-    ~name:"bench"
-    ~intf:(fun sg -> sg)
+  Ppx_driver.register_transformation "bench"
+    ~extensions:E.all
     ~impl:(fun st ->
-      let path = Type_conv_path.get_default_path_str st in
-      match libname() with
-      | None -> disabled#structure path st
+      match Ppx_inline_test_libname.get () with
+      | None -> st
       | Some libname ->
-        let st = enabled#structure path st in
         let loc =
           match st with
           | [] -> Location.none
@@ -204,3 +178,4 @@ let () =
               [%expr Ppx_bench_lib.Benchmark_accumulator.Current_libname.unset ()]
           ]
     )
+;;
