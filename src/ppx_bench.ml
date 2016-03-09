@@ -35,14 +35,20 @@ let descr (loc : Location.t) ?(inner_loc=loc) () =
    eint    ~loc start_pos,
    eint    ~loc end_pos)
 
-let apply_to_descr_bench type_conv_path lid loc ?inner_loc e_opt name more_arg =
+let apply_to_descr_bench type_conv_path lid loc ?inner_loc e_opt ?name_suffix name more_arg =
   let filename, line, start_pos, end_pos = descr loc ?inner_loc () in
   let s = match e_opt with
     | None   -> ""
     | Some e -> Pprintast.string_of_expression e
   in
   let descr = estring ~loc s in
-  let name = estring ~loc name in
+  let name =
+    let base_name = estring ~loc name in
+    match name_suffix with
+    | None -> base_name
+    | Some name_suffix ->
+      [%expr [%e base_name] ^ [%e name_suffix]]
+  in
   let type_conv_path = estring ~loc type_conv_path in
   maybe_drop loc
     [%expr
@@ -103,9 +109,10 @@ let expand_bench_exp ~loc ~path kind index name e =
         end
       ]
 
-let expand_bench_module ~loc ~path name m =
+let expand_bench_module ~loc ~path name_suffix name m =
   assert_enabled loc;
-  apply_to_descr_bench path "add_bench_module" loc ~inner_loc:m.pmod_loc None name
+  apply_to_descr_bench
+    path "add_bench_module" loc ~inner_loc:m.pmod_loc None ?name_suffix name
     (pexp_fun ~loc "" None (punit ~loc)
        (pexp_letmodule ~loc (Located.mk ~loc "M")
           m
@@ -122,6 +129,13 @@ module E = struct
                                  ^:: no_label __
                                  ^:: nil)))
       (fun var values -> (var, values))
+
+  let name_suffix =
+    Attribute.declare
+      "bench.name_suffix"
+      Attribute.Context.pattern
+      Ast_pattern.(single_expr_payload __)
+      (fun a -> a)
 
   let simple =
     let open Ast_pattern in
@@ -142,7 +156,7 @@ module E = struct
     Extension.V2.declare_inline "bench_module" Extension.Context.structure_item
       Ast_pattern.(
         pstr (pstr_value nonrecursive (value_binding
-                                         ~pat:(pstring __)
+                                         ~pat:(Attribute.pattern name_suffix (pstring __))
                                          ~expr:(pexp_pack __)
                                        ^:: nil)
               ^:: nil)

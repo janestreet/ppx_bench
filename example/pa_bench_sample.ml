@@ -84,3 +84,29 @@ let%bench_fun "fold list indexed" [@indexed len = [1;10;100;1000]] =
 let%bench_module "trivial module" = (module struct
   let%bench "trivial" = 3
 end)
+
+(* You can also use bench inside a functor. Since bench cannot figure out the module name
+   (since this is not a well-defined concept), you can use the [@name_suffix] attribute
+   to append an arbitrary expression (of type string) to the benchmark name.
+   The following modules' benchmark names will look like:
+   [pa_bench_sample.ml:Make:MakeQ_1] blah
+   [pa_bench_sample.ml:Make:MakeQ_1000] blah
+*)
+module type Q = sig
+  val j : int
+end
+
+module Make(Q : Q) = struct
+  let j = Q.j
+
+  let%bench_module "MakeQ" [@name_suffix sprintf "_%i" j] =
+    (module struct
+      let%bench "blah" =
+        for _ = 0 to j do
+          ()
+        done
+    end)
+end
+
+module J1 = Make(struct let j = 1 end)
+module J1000 = Make(struct let j = 1_000 end)

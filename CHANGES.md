@@ -1,3 +1,10 @@
+## 113.33.00
+
+- Add an attribute `@name_suffix` to `let%bench_module`. This is an arbitrary
+  expression that gets concatenated to the name of the bench module. It's
+  useful to have this when using `ppx_bench` inside a functor, to distinguish
+  each functor application in the output.
+
 ## 113.24.00
 
 - Update to follow `Ppx_core` evolution.
