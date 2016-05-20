@@ -1,4 +1,4 @@
-open StdLabels
+open! StdLabels
 open Ppx_core.Std
 open Parsetree
 open Ast_builder.Default
@@ -145,15 +145,15 @@ module E = struct
           ^:: nil)
 
   let bench =
-    Extension.V2.declare_inline "bench" Extension.Context.structure_item
+    Extension.declare_inline "bench" Extension.Context.structure_item
       simple (expand_bench_exp Bench)
 
   let bench_fun =
-    Extension.V2.declare_inline "bench_fun" Extension.Context.structure_item
+    Extension.declare_inline "bench_fun" Extension.Context.structure_item
       simple (expand_bench_exp Bench_fun)
 
   let bench_module =
-    Extension.V2.declare_inline "bench_module" Extension.Context.structure_item
+    Extension.declare_inline "bench_module" Extension.Context.structure_item
       Ast_pattern.(
         pstr (pstr_value nonrecursive (value_binding
                                          ~pat:(Attribute.pattern name_suffix (pstring __))
@@ -173,23 +173,21 @@ end
 let () =
   Ppx_driver.register_transformation "bench"
     ~extensions:E.all
-    ~impl:(fun st ->
-      match Ppx_inline_test_libname.get () with
-      | None -> st
-      | Some libname ->
-        let loc =
-          match st with
-          | [] -> Location.none
-          | { pstr_loc = loc; _ } :: _ -> { loc with loc_end = loc.loc_start }
-        in
+    ~enclose_impl:(fun loc ->
+      match loc, Ppx_inline_test_libname.get () with
+      | None, _ | _, None -> ([], [])
+      | Some loc, Some (libname, _) ->
         (* See comment in benchmark_accumulator.ml *)
-        List.concat
-          [ maybe_drop loc
-              [%expr Ppx_bench_lib.Benchmark_accumulator.Current_libname.set
-                       [%e estring ~loc libname]]
-          ; st
-          ; maybe_drop loc
-              [%expr Ppx_bench_lib.Benchmark_accumulator.Current_libname.unset ()]
-          ]
+        let header =
+          let loc = { loc with loc_end = loc.loc_start } in
+          maybe_drop loc
+            [%expr Ppx_bench_lib.Benchmark_accumulator.Current_libname.set
+                     [%e estring ~loc libname]]
+        and footer =
+          let loc = { loc with loc_start = loc.loc_end } in
+          maybe_drop loc
+            [%expr Ppx_bench_lib.Benchmark_accumulator.Current_libname.unset ()]
+        in
+        (header, footer)
     )
 ;;
