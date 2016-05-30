@@ -96,6 +96,17 @@ let lookup_rev_lib ~libname =
 let lookup_lib ~libname =
   List.rev (lookup_rev_lib ~libname)
 
+let force_drop =
+  (* Useful for js_of_ocaml to perform deadcode elimination.
+     see ppx/ppx_inline_test/runtime-lib/runtime.ml [Action.get] for more details *)
+  try ignore (Sys.getenv "FORCE_DROP_BENCH" : string); true
+  with Not_found -> false
+
+let get_mode () =
+  if force_drop
+  then `Ignore
+  else `Collect
+
 let add_bench
       ~name
       ~code
@@ -106,13 +117,16 @@ let add_bench
       ~endpos
       test_spec
   =
-  let libname = Current_libname.get () in
-  let entry = { Entry.
-    code; unique_id = unique_id ();
-    type_conv_path; bench_module_name = Current_bench_module_stack.to_name ();
-    name; filename; line; startpos; endpos; test_spec;
-  } in
-  Hashtbl.add libs_to_entries libname (entry :: lookup_rev_lib ~libname)
+  match get_mode () with
+  | `Ignore -> ()
+  | `Collect ->
+    let libname = Current_libname.get () in
+    let entry = { Entry.
+      code; unique_id = unique_id ();
+      type_conv_path; bench_module_name = Current_bench_module_stack.to_name ();
+      name; filename; line; startpos; endpos; test_spec;
+    } in
+    Hashtbl.add libs_to_entries libname (entry :: lookup_rev_lib ~libname)
 
 let add_bench_module
     ~name
@@ -123,11 +137,14 @@ let add_bench_module
     ~startpos:_
     ~endpos:_
     f =
-  (* Running f registers the benchmarks using BENCH *)
-  Current_bench_module_stack.push name;
-  try
-    f ();
-    Current_bench_module_stack.pop_exn ();
-  with ex ->
-    Current_bench_module_stack.pop_exn ();
-    raise ex
+  match get_mode () with
+  | `Ignore -> ()
+  | `Collect ->
+    (* Running f registers the benchmarks using BENCH *)
+    Current_bench_module_stack.push name;
+    try
+      f ();
+      Current_bench_module_stack.pop_exn ();
+    with ex ->
+      Current_bench_module_stack.pop_exn ();
+      raise ex
