@@ -52,7 +52,7 @@ let apply_to_descr_bench type_conv_path lid loc ?inner_loc e_opt ?name_suffix na
   let type_conv_path = estring ~loc type_conv_path in
   maybe_drop loc
     [%expr
-      if Ppx_bench_lib.Benchmark_accumulator.add_benchmarks_flag then
+      if Ppx_bench_lib.Benchmark_accumulator.add_environment_var then
         [%e evar ~loc @@ "Ppx_bench_lib.Benchmark_accumulator." ^ lid]
           ~name:[%e name]
           ~code:[%e descr]
@@ -113,7 +113,7 @@ let expand_bench_module ~loc ~path name_suffix name m =
   assert_enabled loc;
   apply_to_descr_bench
     path "add_bench_module" loc ~inner_loc:m.pmod_loc None ?name_suffix name
-    (pexp_fun ~loc "" None (punit ~loc)
+    (pexp_fun ~loc Nolabel None (punit ~loc)
        (pexp_letmodule ~loc (Located.mk ~loc "M")
           m
           (eunit ~loc)))

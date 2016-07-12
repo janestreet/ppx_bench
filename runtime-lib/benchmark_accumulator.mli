@@ -43,9 +43,9 @@ module Entry : sig
   val get_module_name_opt : t -> string option
 end
 
-(** [add_benchmarks_flag] returns true if the benchmarks should be added to the
+(** [add_environment_var] returns true if the benchmarks should be added to the
     hashtable *)
-val add_benchmarks_flag : bool
+val add_environment_var : bool
 
 (** [lookup_lib] returns all the benchmarks from the specified library *)
 val lookup_lib : libname:string -> Entry.t list
