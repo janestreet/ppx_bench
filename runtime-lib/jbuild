@@ -1,0 +1,5 @@
+(library
+ ((name ppx_bench_lib)
+  (public_name ppx_bench.runtime-lib)
+  (modules (list (benchmark_accumulator)))
+  (preprocess ())))
