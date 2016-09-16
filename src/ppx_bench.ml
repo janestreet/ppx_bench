@@ -90,7 +90,7 @@ let expand_bench_exp ~loc ~path kind index name e =
     apply_to_descr_bench path "add_bench" loc (Some e) name
       [%expr
         let f () = [%e thunk_bench kind e] in begin
-          if false then Pervasives.ignore (f () ()) else ();
+          if false then Ppx_bench_lib.Export.ignore (f () ()) else ();
           Ppx_bench_lib.Benchmark_accumulator.Entry.Regular_thunk f
         end
       ]
@@ -99,7 +99,7 @@ let expand_bench_exp ~loc ~path kind index name e =
       [%expr
         let arg_values = [%e args]
         and f = fun [%p pvar ~loc var_name] -> [%e thunk_bench kind e] in begin
-          if false then Pervasives.ignore (f 0 ()) else ();
+          if false then Ppx_bench_lib.Export.ignore (f 0 ()) else ();
           Ppx_bench_lib.Benchmark_accumulator.Entry.Indexed_thunk
             { Ppx_bench_lib.Benchmark_accumulator.Entry.arg_name =
                 [%e estring ~loc var_name]
