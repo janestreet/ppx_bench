@@ -89,8 +89,8 @@ let expand_bench_exp ~loc ~path kind index name e =
        mistakenly gives a partial application. *)
     apply_to_descr_bench path "add_bench" loc (Some e) name
       [%expr
-        let f () = [%e thunk_bench kind e] in begin
-          if false then Ppx_bench_lib.Export.ignore (f () ()) else ();
+        let f `init = [%e thunk_bench kind e] in begin
+          if false then Ppx_bench_lib.Export.ignore (f `init ()) else ();
           Ppx_bench_lib.Benchmark_accumulator.Entry.Regular_thunk f
         end
       ]

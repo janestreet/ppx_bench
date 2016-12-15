@@ -2,4 +2,4 @@
  ((name ppx_bench_lib)
   (public_name ppx_bench.runtime-lib)
   (js_of_ocaml ())
-  (preprocess ())))
+  (preprocess no_preprocessing)))

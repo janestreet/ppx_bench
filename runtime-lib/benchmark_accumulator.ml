@@ -37,7 +37,7 @@ module Entry = struct
   }
 
   type test_spec =
-    | Regular_thunk : (unit -> unit -> 'a) -> test_spec
+    | Regular_thunk : ([`init] -> unit -> 'a) -> test_spec
     | Indexed_thunk : 'a indexed_spec -> test_spec
 
   type t = {
