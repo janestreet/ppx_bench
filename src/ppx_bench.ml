@@ -1,9 +1,5 @@
-open! StdLabels
-open Ppx_core.Std
-open Parsetree
+open Ppx_core
 open Ast_builder.Default
-
-[@@@metaloc loc]
 
 type maybe_drop =
   | Keep
@@ -13,10 +9,10 @@ type maybe_drop =
 let drop_benches = ref Keep
 let () =
   Ppx_driver.add_arg "-bench-drop"
-    (Arg.Unit (fun () -> drop_benches := Remove))
+    (Unit (fun () -> drop_benches := Remove))
     ~doc:" Drop inline benchmarks";
   Ppx_driver.add_arg "-bench-drop-with-deadcode"
-    (Arg.Unit (fun () -> drop_benches := Deadcode))
+    (Unit (fun () -> drop_benches := Deadcode))
     ~doc:" Drop inline benchmarks by wrapping them inside deadcode to prevent unused variable warnings."
 
 let maybe_drop loc code =
@@ -53,7 +49,7 @@ let apply_to_descr_bench type_conv_path lid loc ?inner_loc e_opt ?name_suffix na
   maybe_drop loc
     [%expr
       if Ppx_bench_lib.Benchmark_accumulator.add_environment_var then
-        [%e evar ~loc @@ "Ppx_bench_lib.Benchmark_accumulator." ^ lid]
+        [%e evar ~loc ("Ppx_bench_lib.Benchmark_accumulator." ^ lid)]
           ~name:[%e name]
           ~code:[%e descr]
           ~type_conv_path:[%e type_conv_path]
