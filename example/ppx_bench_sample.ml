@@ -1,4 +1,4 @@
-open Core.Std
+open Core
 (* This shows some sample uses of BENCH.  Have a look at pa_bench_sample.ml.pp to see how
    the preprocessor works.
 
