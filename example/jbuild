@@ -5,3 +5,5 @@
 (alias
  ((name DEFAULT)
   (deps (ppx_bench_sample.ml.pp))))
+
+(jbuild_version jane_street)
