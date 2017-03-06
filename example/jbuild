@@ -1,7 +1,7 @@
 (library
  ((name ppx_bench_sample_lib)
   (libraries (core))
-  (preprocess (pps (ppx_jane)))))
+  (preprocess (pps (ppx_jane ppx_driver.runner)))))
 
 (alias
  ((name DEFAULT)

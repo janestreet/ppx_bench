@@ -9,11 +9,12 @@ build: [
   ["jbuilder" "build" "--only-packages" "ppx_bench" "--root" "." "-j" jobs "@install"]
 ]
 depends: [
-  "jbuilder"
+  "jbuilder"                {build}
   "ppx_core"
   "ppx_driver"
   "ppx_inline_test"
   "ppx_metaquot"
+  "ocaml-migrate-parsetree"
 ]
 available: [ ocaml-version >= "4.03.0" ]
 descr: "
