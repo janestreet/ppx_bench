@@ -1,3 +1,11 @@
+## v0.9.1
+
+- Use cookies as well as command line options
+
+## v0.9.0
+
+No changelog available
+
 ## 113.43.00
 
 - use the new context-free API
