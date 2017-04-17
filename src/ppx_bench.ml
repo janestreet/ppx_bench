@@ -15,6 +15,22 @@ let () =
     (Unit (fun () -> drop_benches := Deadcode))
     ~doc:" Drop inline benchmarks by wrapping them inside deadcode to prevent unused variable warnings."
 
+
+let () =
+  Ppx_driver.Cookies.add_simple_handler "inline-bench"
+    Ast_pattern.(pexp_ident (lident __'))
+    ~f:(function
+      | None -> ()
+      | Some id ->
+        match id.txt with
+        | "drop" -> drop_benches := Remove
+        | "drop_with_deadcode" -> drop_benches := Deadcode
+        | s ->
+          Location.raise_errorf ~loc:id.loc
+            "invalid 'inline-bench' cookie (%s), expected one of: \
+             drop, drop_with_deadcode"
+            s)
+
 let maybe_drop loc code =
   match !drop_benches with
   | Keep     -> [%str let () = [%e code]]
