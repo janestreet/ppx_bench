@@ -1,7 +1,5 @@
----
-title: ppx_bench
-parent: ../README.md
----
+ppx_bench
+=========
 
 Syntax extension for writing in-line benchmarks in ocaml code.
 
