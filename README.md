@@ -1,8 +1,8 @@
 ppx_bench
 =========
 
-Syntax extension for writing in-line benchmarks in ocaml code.
+Syntax extension for writing in-line benchmarks in OCaml code.
 
-For documentation & examples, see: 
+For documentation and examples, see:
 
-    example/pa_bench_sample.ml
+    example/ppx_bench_sample.ml

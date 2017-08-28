@@ -4,9 +4,9 @@
   (kind ppx_rewriter)
   (ppx_runtime_libraries (ppx_bench.runtime-lib))
   (libraries (
-              ppx_core
-              ppx_driver
-              ppx_inline_test.libname))
+    ppx_core
+    ppx_driver
+    ppx_inline_test.libname))
   (preprocess (pps (ppx_metaquot ppx_driver.runner)))))
 
 (jbuild_version 1)
