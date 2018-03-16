@@ -1,4 +1,4 @@
-open Ppx_core
+open Ppxlib
 open Ast_builder.Default
 
 type maybe_drop =
@@ -8,16 +8,16 @@ type maybe_drop =
 
 let drop_benches = ref Keep
 let () =
-  Ppx_driver.add_arg "-bench-drop"
+  Driver.add_arg "-bench-drop"
     (Unit (fun () -> drop_benches := Remove))
     ~doc:" Drop inline benchmarks";
-  Ppx_driver.add_arg "-bench-drop-with-deadcode"
+  Driver.add_arg "-bench-drop-with-deadcode"
     (Unit (fun () -> drop_benches := Deadcode))
     ~doc:" Drop inline benchmarks by wrapping them inside deadcode to prevent unused variable warnings."
 
 
 let () =
-  Ppx_driver.Cookies.add_simple_handler "inline-bench"
+  Driver.Cookies.add_simple_handler "inline-bench"
     Ast_pattern.(pexp_ident (lident __'))
     ~f:(function
       | None -> ()
@@ -183,7 +183,7 @@ module E = struct
 end
 
 let () =
-  Ppx_driver.register_transformation "bench"
+  Driver.register_transformation "bench"
     ~extensions:E.all
     ~enclose_impl:(fun loc ->
       match loc, Ppx_inline_test_libname.get () with
