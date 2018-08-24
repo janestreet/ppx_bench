@@ -1,10 +1,6 @@
 open Core
 (* This shows some sample uses of BENCH.  Have a look at pa_bench_sample.ml.pp to see how
-   the preprocessor works.
-
-   Also see:
-   http://docs/programming/performance/inline-benchmarks.html
-*)
+   the preprocessor works. *)
 
 (* One can specify a benchmark using the following syntax:
 
