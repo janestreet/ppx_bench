@@ -110,35 +110,35 @@ let get_mode () =
   else `Collect
 
 let[@inline never] add_bench
-      ~name
-      ~code
-      ~filename
-      ~type_conv_path
-      ~line
-      ~startpos
-      ~endpos
-      test_spec
+                     ~name
+                     ~code
+                     ~filename
+                     ~type_conv_path
+                     ~line
+                     ~startpos
+                     ~endpos
+                     test_spec
   =
   match get_mode () with
   | `Ignore -> ()
   | `Collect ->
     let libname = Current_libname.get () in
     let entry = { Entry.
-      code; unique_id = unique_id ();
-      type_conv_path; bench_module_name = Current_bench_module_stack.to_name ();
-      name; filename; line; startpos; endpos; test_spec;
-    } in
+                  code; unique_id = unique_id ();
+                  type_conv_path; bench_module_name = Current_bench_module_stack.to_name ();
+                  name; filename; line; startpos; endpos; test_spec;
+                } in
     Hashtbl.add libs_to_entries libname (entry :: lookup_rev_lib ~libname)
 
 let[@inline never] add_bench_module
-    ~name
-    ~code:_
-    ~type_conv_path:_
-    ~filename:_
-    ~line:_
-    ~startpos:_
-    ~endpos:_
-    f =
+                     ~name
+                     ~code:_
+                     ~type_conv_path:_
+                     ~filename:_
+                     ~line:_
+                     ~startpos:_
+                     ~endpos:_
+                     f =
   match get_mode () with
   | `Ignore -> ()
   | `Collect ->

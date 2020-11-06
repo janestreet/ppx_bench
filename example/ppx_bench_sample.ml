@@ -3,9 +3,9 @@ open Core
    directory to see how the preprocessor works. *)
 
 (* One can specify a benchmark using the following syntax:
-
+   {[
      let%bench "name" = expr
-
+   ]}
    In the above, the value of [expr] is ignored.  This creates a benchmark for [expr],
    that is run using the [inline_benchmarks_runner] script from the command-line. This
    workflow is similar to that of inline unit tests.
@@ -28,11 +28,11 @@ let%bench "add functional" =
 
 (* One can specify benchmarks that require some initialization using [bench_fun]. For
    example:
-
-      let%bench_fun "name" =
-        let t = create () in
-        (fun () -> test_something t)
-
+   {[
+     let%bench_fun "name" =
+       let t = create () in
+       (fun () -> test_something t)
+   ]}
    The function returned on the RHS of [bench_fun] should have type [unit
    -> unit].
 
@@ -60,13 +60,13 @@ let%bench_fun "fold list indexed" [@indexed len = [1;10;100;1000]] =
 
 (* We can group benchmarks together into modules and the output of
    [inline_benchmarks_runner] will reflect this grouping.
-
+   {[
      let%bench_module "Blit tests" = (module struct
 
        ..some benchmarks..
 
      end)
-
+   ]}
    For examples of all of the above see [bench_gc.ml] and [bench_array.ml] in
    [lib/core_kernel/bench].
 
