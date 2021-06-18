@@ -78,6 +78,10 @@ let apply_to_descr_bench type_conv_path lid loc ?inner_loc e_opt ?name_suffix na
 
 type bench_kind = Bench | Bench_fun
 
+type arg_kind =
+  | Indexed of (string * expression)
+  | Parameterised of (string * expression)
+
 let thunk_bench kind e = match kind with
   | Bench_fun -> e
   | Bench -> let loc = {e.pexp_loc with loc_ghost=true} in [%expr fun () -> [%e e]]
@@ -107,16 +111,32 @@ let expand_bench_exp ~loc ~path kind index name e =
           Ppx_bench_lib.Benchmark_accumulator.Entry.Regular_thunk f
         end
       ]
-  | Some (var_name, args) ->
+  | Some ( Indexed (var_name, args) ) ->
     apply_to_descr_bench path "add_bench" loc (Some e) name
       [%expr
         let arg_values = [%e args]
         and f = fun [%p pvar ~loc var_name] -> [%e thunk_bench kind e] in begin
           if false then Ppx_bench_lib.Export.ignore (f 0 ()) else ();
-          Ppx_bench_lib.Benchmark_accumulator.Entry.Indexed_thunk
+          Ppx_bench_lib.Benchmark_accumulator.Entry.Parameterised_thunk
             { Ppx_bench_lib.Benchmark_accumulator.Entry.arg_name =
                 [%e estring ~loc var_name]
-            ; Ppx_bench_lib.Benchmark_accumulator.Entry.arg_values
+            ; Ppx_bench_lib.Benchmark_accumulator.Entry.params =
+                (* We use Caml.* because this might run without any opens. *)
+                Caml.List.map (fun i -> Caml.string_of_int i, i) arg_values [@warning "-3"]
+            ; Ppx_bench_lib.Benchmark_accumulator.Entry.thunk = f
+            }
+        end
+      ]
+  | Some ( Parameterised (var_name, args) ) ->
+    apply_to_descr_bench path "add_bench" loc (Some e) name
+      [%expr
+        let params = [%e args]
+        and f = fun [%p pvar ~loc var_name] -> [%e thunk_bench kind e] in begin
+          if false then Ppx_bench_lib.Export.ignore (f (List.hd_exn params |> snd) ()) else ();
+          Ppx_bench_lib.Benchmark_accumulator.Entry.Parameterised_thunk
+            { Ppx_bench_lib.Benchmark_accumulator.Entry.arg_name =
+                [%e estring ~loc var_name]
+            ; Ppx_bench_lib.Benchmark_accumulator.Entry.params
             ; Ppx_bench_lib.Benchmark_accumulator.Entry.thunk = f
             }
         end
@@ -142,7 +162,18 @@ module E = struct
                                 (no_label (pexp_ident (lident __))
                                  ^:: no_label __
                                  ^:: nil)))
-      (fun var values -> (var, values))
+      (fun var values -> Indexed (var, values))
+
+  let parameterised =
+    Attribute.declare
+      "bench.params"
+      Attribute.Context.pattern
+      Ast_pattern.
+        (single_expr_payload (pexp_apply (pexp_ident (lident (string "=")))
+                                (no_label (pexp_ident (lident __))
+                                 ^:: no_label __
+                                 ^:: nil)))
+      (fun var values -> Parameterised (var, values))
 
   let name_suffix =
     Attribute.declare
@@ -151,10 +182,15 @@ module E = struct
       Ast_pattern.(single_expr_payload __)
       (fun a -> a)
 
+
   let simple =
     let open Ast_pattern in
     pstr (pstr_value nonrecursive
-            (value_binding ~pat:(Attribute.pattern indexed (pstring __)) ~expr:__
+            (value_binding ~pat:(
+               alt
+                 ( Attribute.pattern indexed (pstring __) )
+                 ( Attribute.pattern parameterised (pstring __) )
+             ) ~expr:__
              ^:: nil)
           ^:: nil)
 

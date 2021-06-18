@@ -30,15 +30,15 @@ end
    along with some metadata about is position, arguments etc. *)
 module Entry = struct
 
-  type 'a indexed_spec = {
+  type ('param, 'a) parameterised_spec = {
     arg_name   : string;
-    arg_values : int list;
-    thunk      : int -> unit -> 'a;
+    params : (string * 'param) list;
+    thunk : 'param -> unit -> 'a
   }
 
   type test_spec =
     | Regular_thunk : ([`init] -> unit -> 'a) -> test_spec
-    | Indexed_thunk : 'a indexed_spec -> test_spec
+    | Parameterised_thunk : ( 'param, 'a) parameterised_spec -> test_spec
 
   type t = {
     unique_id         : int;
@@ -54,11 +54,6 @@ module Entry = struct
   }
 
   let compare t1 t2 = compare t1.unique_id t2.unique_id
-
-  let get_indexed_arg_name t =
-    match t.test_spec with
-    | Regular_thunk _ -> None
-    | Indexed_thunk {arg_name; _} -> Some arg_name
 
   (* Extracts module name from ["filename.ml.Module"], which is the format of [ext_name]
      as set by [typeconv]. *)
