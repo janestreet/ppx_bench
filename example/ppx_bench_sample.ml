@@ -17,14 +17,12 @@ let%bench "add mutable" =
     i := !i + j
   done;
   !i
+;;
 
 let%bench "add functional" =
-  let rec f acc j =
-    if j > 10_000
-    then acc
-    else f (acc + j) (j + 1)
-  in
+  let rec f acc j = if j > 10_000 then acc else f (acc + j) (j + 1) in
   f 0 1
+;;
 
 (* One can specify benchmarks that require some initialization using [bench_fun]. For
    example:
@@ -44,7 +42,8 @@ let%bench "add functional" =
 
 let%bench_fun "fold list" =
   let l = List.init 10_000 ~f:(fun i -> i) in
-  (fun () -> List.fold l ~init:0 ~f:( + ) |> ignore)
+  fun () -> (List.fold l ~init:0 ~f:( + ) : int) |> ignore
+;;
 
 (* One can specify benchmarks that have a variable parameter using an optional [@indexed
    <var> = <expr>] argument to [bench_fun]. Here <expr> has to be of type [int list]. In
@@ -54,20 +53,20 @@ let%bench_fun "fold list" =
    functions.
 *)
 
-let%bench_fun "fold list indexed" [@indexed len = [1;10;100;1000]] =
+let%bench_fun ("fold list indexed" [@indexed len = [ 1; 10; 100; 1000 ]]) =
   let l = List.init len ~f:(fun i -> i) in
-  (fun () -> List.fold l ~init:0 ~f:( + ) |> ignore)
+  fun () -> (List.fold l ~init:0 ~f:( + ) : int) |> ignore
+;;
 
 (* Arbitrary arguments can be provided with [@params <var> = <expr>], where <expr> is
    an assoc list of test case names with values. *)
 
-let%bench_fun "fold list by function" [@params f =
-                                               ["add", ( + )
-                                               ; "sub", ( - )
-                                               ; "mul", ( * )
-                                               ]] =
+let%bench_fun ("fold list by function" [@params
+                 f = [ "add", ( + ); "sub", ( - ); "mul", ( * ) ]])
+  =
   let l = List.init 20 ~f:(fun i -> i) in
-  (fun () -> List.fold l ~init:1 ~f |> ignore)
+  fun () -> (List.fold l ~init:1 ~f : int) |> ignore
+;;
 
 (* We can group benchmarks together into modules and the output of
    [inline_benchmarks_runner] will reflect this grouping.
@@ -88,9 +87,11 @@ let%bench_fun "fold list by function" [@params f =
    benchmarks should have little effect on the execution or module initialization time.
 *)
 
-let%bench_module "trivial module" = (module struct
-  let%bench "trivial" = 3
-end)
+let%bench_module "trivial module" =
+  (module struct
+    let%bench "trivial" = 3
+  end)
+;;
 
 (* You can also use bench inside a functor. Since bench cannot figure out the module name
    (since this is not a well-defined concept), you can use the [@name_suffix] attribute
@@ -103,17 +104,24 @@ module type Q = sig
   val j : int
 end
 
-module Make(Q : Q) = struct
+module Make (Q : Q) = struct
   let j = Q.j
 
-  let%bench_module "MakeQ" [@name_suffix sprintf "_%i" j] =
+  let%bench_module ("MakeQ" [@name_suffix sprintf "_%i" j]) =
     (module struct
       let%bench "blah" =
         for _ = 0 to j do
           ()
         done
+      ;;
     end)
+  ;;
 end
 
-module J1 = Make(struct let j = 1 end)
-module J1000 = Make(struct let j = 1_000 end)
+module J1 = Make (struct
+    let j = 1
+  end)
+
+module J1000 = Make (struct
+    let j = 1_000
+  end)

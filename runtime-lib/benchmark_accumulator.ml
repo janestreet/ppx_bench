@@ -1,13 +1,15 @@
 let unique_id =
   let r = ref 0 in
-  fun () -> incr r; !r
+  fun () ->
+    incr r;
+    !r
+;;
 
 (* Used to track the current libname in such a way that for functor applications, it is
    the calling libraries name that gets registered. *)
 module Current_libname = struct
   let null = "<unknown>"
   let libname_ref = ref null
-
   let set str = libname_ref := str
   let unset () = libname_ref := null
   let get () = !libname_ref
@@ -15,43 +17,41 @@ end
 
 module Current_bench_module_stack = struct
   let t = ref []
-
   let push s = t := s :: !t
-
   let pop_exn () = t := List.tl !t
 
   let to_name () =
     match !t with
     | [] -> None
     | ms -> Some (String.concat "." (List.rev ms))
+  ;;
 end
 
 (* This is the main data structure of this module. An [Entry.t] represents a benchmark
    along with some metadata about is position, arguments etc. *)
 module Entry = struct
-
-  type ('param, 'a) parameterised_spec = {
-    arg_name   : string;
-    params : (string * 'param) list;
-    thunk : 'param -> unit -> 'a
-  }
+  type ('param, 'a) parameterised_spec =
+    { arg_name : string
+    ; params : (string * 'param) list
+    ; thunk : 'param -> unit -> 'a
+    }
 
   type test_spec =
-    | Regular_thunk : ([`init] -> unit -> 'a) -> test_spec
-    | Parameterised_thunk : ( 'param, 'a) parameterised_spec -> test_spec
+    | Regular_thunk : ([ `init ] -> unit -> 'a) -> test_spec
+    | Parameterised_thunk : ('param, 'a) parameterised_spec -> test_spec
 
-  type t = {
-    unique_id         : int;
-    code              : string;
-    type_conv_path    : string;
-    name              : string;
-    filename          : string;
-    line              : int;
-    startpos          : int;
-    endpos            : int;
-    test_spec         : test_spec;
-    bench_module_name : string option;
-  }
+  type t =
+    { unique_id : int
+    ; code : string
+    ; type_conv_path : string
+    ; name : string
+    ; filename : string
+    ; line : int
+    ; startpos : int
+    ; endpos : int
+    ; test_spec : test_spec
+    ; bench_module_name : string option
+    }
 
   let compare t1 t2 = compare t1.unique_id t2.unique_id
 
@@ -69,6 +69,7 @@ module Entry = struct
       else None
     in
     loop 0
+  ;;
 end
 
 (* Inspect system environment variables to decide if benchmarks are being run. This is
@@ -80,6 +81,7 @@ let add_environment_var =
     | Not_found -> ""
   in
   v = "TRUE"
+;;
 
 (* This hashtable contains all the benchmarks from all the of libraries that have been
    loaded. At the time the benchmarks are registering themselves with [ppx_bench_lib] we
@@ -87,22 +89,23 @@ let add_environment_var =
 let libs_to_entries : (string, Entry.t list) Hashtbl.t = Hashtbl.create 10
 
 let lookup_rev_lib ~libname =
-  try Hashtbl.find libs_to_entries libname
-  with Not_found -> []
+  try Hashtbl.find libs_to_entries libname with
+  | Not_found -> []
+;;
 
-let lookup_lib ~libname =
-  List.rev (lookup_rev_lib ~libname)
+let lookup_lib ~libname = List.rev (lookup_rev_lib ~libname)
 
 let force_drop =
   (* Useful for js_of_ocaml to perform deadcode elimination.
      see ppx/ppx_inline_test/runtime-lib/runtime.ml [Action.get] for more details *)
-  try ignore (Sys.getenv "FORCE_DROP_BENCH" : string); true
-  with Not_found -> false
+  try
+    ignore (Sys.getenv "FORCE_DROP_BENCH" : string);
+    true
+  with
+  | Not_found -> false
+;;
 
-let get_mode () =
-  if force_drop
-  then `Ignore
-  else `Collect
+let get_mode () = if force_drop then `Ignore else `Collect
 
 let[@inline never] add_bench
                      ~name
@@ -118,12 +121,21 @@ let[@inline never] add_bench
   | `Ignore -> ()
   | `Collect ->
     let libname = Current_libname.get () in
-    let entry = { Entry.
-                  code; unique_id = unique_id ();
-                  type_conv_path; bench_module_name = Current_bench_module_stack.to_name ();
-                  name; filename; line; startpos; endpos; test_spec;
-                } in
+    let entry =
+      { Entry.code
+      ; unique_id = unique_id ()
+      ; type_conv_path
+      ; bench_module_name = Current_bench_module_stack.to_name ()
+      ; name
+      ; filename
+      ; line
+      ; startpos
+      ; endpos
+      ; test_spec
+      }
+    in
     Hashtbl.add libs_to_entries libname (entry :: lookup_rev_lib ~libname)
+;;
 
 let[@inline never] add_bench_module
                      ~name
@@ -133,15 +145,18 @@ let[@inline never] add_bench_module
                      ~line:_
                      ~startpos:_
                      ~endpos:_
-                     f =
+                     f
+  =
   match get_mode () with
   | `Ignore -> ()
   | `Collect ->
     (* Running f registers the benchmarks using BENCH *)
     Current_bench_module_stack.push name;
-    try
-      f ();
-      Current_bench_module_stack.pop_exn ();
-    with ex ->
-      Current_bench_module_stack.pop_exn ();
-      raise ex
+    (try
+       f ();
+       Current_bench_module_stack.pop_exn ()
+     with
+     | ex ->
+       Current_bench_module_stack.pop_exn ();
+       raise ex)
+;;
