@@ -70,6 +70,8 @@ module Entry = struct
     in
     loop 0
   ;;
+
+  let with_test_spec t test_spec = { t with test_spec }
 end
 
 (* Inspect system environment variables to decide if benchmarks are being run. This is

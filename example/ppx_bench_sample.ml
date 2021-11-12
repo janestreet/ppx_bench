@@ -118,10 +118,10 @@ module Make (Q : Q) = struct
   ;;
 end
 
-module J1 = Make (struct
+module _ = Make (struct
     let j = 1
   end)
 
-module J1000 = Make (struct
+module _ = Make (struct
     let j = 1_000
   end)

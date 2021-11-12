@@ -39,6 +39,7 @@ module Entry : sig
     ; bench_module_name : string option
     }
 
+  val with_test_spec : t -> test_spec -> t
   val compare : t -> t -> int
   val get_module_name_opt : t -> string option
 end
