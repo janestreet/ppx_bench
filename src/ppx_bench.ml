@@ -49,7 +49,7 @@ let maybe_drop loc code =
 ;;
 
 let descr (loc : Location.t) ?(inner_loc = loc) () =
-  let filename = File_path.get_default_path loc in
+  let filename = loc.loc_start.pos_fname in
   let line = loc.loc_start.pos_lnum in
   let start_pos = loc.loc_start.pos_cnum - loc.loc_start.pos_bol in
   let end_pos = inner_loc.Location.loc_end.pos_cnum - loc.loc_start.pos_bol in
@@ -159,8 +159,10 @@ let expand_bench_exp ~loc ~path kind index name e =
           { Ppx_bench_lib.Benchmark_accumulator.Entry.arg_name =
               [%e estring ~loc var_name]
           ; Ppx_bench_lib.Benchmark_accumulator.Entry.params =
-              (* We use Caml.* because this might run without any opens. *)
-              Caml.List.map (fun i -> Caml.string_of_int i, i) arg_values [@warning "-3"]
+              (* We use Stdlib.* because this might run without any opens. *)
+              Stdlib.List.map
+                (fun i -> Stdlib.string_of_int i, i)
+                arg_values [@warning "-3"]
           ; Ppx_bench_lib.Benchmark_accumulator.Entry.thunk = f
           }]
   | Some (Parameterised (var_name, args)) ->
