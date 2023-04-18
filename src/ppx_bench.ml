@@ -49,7 +49,7 @@ let maybe_drop loc code =
 ;;
 
 let descr (loc : Location.t) ?(inner_loc = loc) () =
-  let filename = File_path.get_default_path loc in
+  let filename = loc.loc_start.pos_fname in
   let line = loc.loc_start.pos_lnum in
   let start_pos = loc.loc_start.pos_cnum - loc.loc_start.pos_bol in
   let end_pos = inner_loc.Location.loc_end.pos_cnum - loc.loc_start.pos_bol in
