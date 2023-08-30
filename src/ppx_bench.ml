@@ -57,14 +57,14 @@ let descr (loc : Location.t) ?(inner_loc = loc) () =
 ;;
 
 let apply_to_descr_bench
-      type_conv_path
-      lid
-      loc
-      ?inner_loc
-      e_opt
-      ?name_suffix
-      name
-      more_arg
+  type_conv_path
+  lid
+  loc
+  ?inner_loc
+  e_opt
+  ?name_suffix
+  name
+  more_arg
   =
   let filename, line, start_pos, end_pos = descr loc ?inner_loc () in
   let s =
@@ -159,8 +159,10 @@ let expand_bench_exp ~loc ~path kind index name e =
           { Ppx_bench_lib.Benchmark_accumulator.Entry.arg_name =
               [%e estring ~loc var_name]
           ; Ppx_bench_lib.Benchmark_accumulator.Entry.params =
-              (* We use Caml.* because this might run without any opens. *)
-              Caml.List.map (fun i -> Caml.string_of_int i, i) arg_values [@warning "-3"]
+              (* We use Stdlib.* because this might run without any opens. *)
+              Stdlib.List.map
+                (fun i -> Stdlib.string_of_int i, i)
+                arg_values [@warning "-3"]
           ; Ppx_bench_lib.Benchmark_accumulator.Entry.thunk = f
           }]
   | Some (Parameterised (var_name, args)) ->

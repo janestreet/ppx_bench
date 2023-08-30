@@ -18,7 +18,7 @@ module Entry : sig
   type ('param, 'a) parameterised_spec =
     { arg_name : string
     ; params : (string * 'param) list
-    (** The first coordinate is some string representation of the second coordinate. *)
+        (** The first coordinate is some string representation of the second coordinate. *)
     ; thunk : 'param -> unit -> 'a
     }
 

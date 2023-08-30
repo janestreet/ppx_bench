@@ -62,7 +62,7 @@ let%bench_fun ("fold list indexed" [@indexed len = [ 1; 10; 100; 1000 ]]) =
    an assoc list of test case names with values. *)
 
 let%bench_fun ("fold list by function" [@params
-                 f = [ "add", ( + ); "sub", ( - ); "mul", ( * ) ]])
+                                         f = [ "add", ( + ); "sub", ( - ); "mul", ( * ) ]])
   =
   let l = List.init 20 ~f:(fun i -> i) in
   fun () -> (List.fold l ~init:1 ~f : int) |> ignore
@@ -119,9 +119,9 @@ module Make (Q : Q) = struct
 end
 
 module _ = Make (struct
-    let j = 1
-  end)
+  let j = 1
+end)
 
 module _ = Make (struct
-    let j = 1_000
-  end)
+  let j = 1_000
+end)
