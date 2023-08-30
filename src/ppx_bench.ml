@@ -57,14 +57,14 @@ let descr (loc : Location.t) ?(inner_loc = loc) () =
 ;;
 
 let apply_to_descr_bench
-      type_conv_path
-      lid
-      loc
-      ?inner_loc
-      e_opt
-      ?name_suffix
-      name
-      more_arg
+  type_conv_path
+  lid
+  loc
+  ?inner_loc
+  e_opt
+  ?name_suffix
+  name
+  more_arg
   =
   let filename, line, start_pos, end_pos = descr loc ?inner_loc () in
   let s =

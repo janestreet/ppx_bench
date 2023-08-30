@@ -110,14 +110,14 @@ let force_drop =
 let get_mode () = if force_drop then `Ignore else `Collect
 
 let[@inline never] add_bench
-                     ~name
-                     ~code
-                     ~filename
-                     ~type_conv_path
-                     ~line
-                     ~startpos
-                     ~endpos
-                     test_spec
+  ~name
+  ~code
+  ~filename
+  ~type_conv_path
+  ~line
+  ~startpos
+  ~endpos
+  test_spec
   =
   match get_mode () with
   | `Ignore -> ()
@@ -140,14 +140,14 @@ let[@inline never] add_bench
 ;;
 
 let[@inline never] add_bench_module
-                     ~name
-                     ~code:_
-                     ~type_conv_path:_
-                     ~filename:_
-                     ~line:_
-                     ~startpos:_
-                     ~endpos:_
-                     f
+  ~name
+  ~code:_
+  ~type_conv_path:_
+  ~filename:_
+  ~line:_
+  ~startpos:_
+  ~endpos:_
+  f
   =
   match get_mode () with
   | `Ignore -> ()
