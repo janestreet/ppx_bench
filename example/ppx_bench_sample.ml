@@ -119,9 +119,9 @@ module Make (Q : Q) = struct
 end
 
 module _ = Make (struct
-  let j = 1
-end)
+    let j = 1
+  end)
 
 module _ = Make (struct
-  let j = 1_000
-end)
+    let j = 1_000
+  end)
