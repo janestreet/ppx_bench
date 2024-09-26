@@ -141,8 +141,11 @@ let expand_bench_exp ~loc ~path kind index name e =
       (Some e)
       name
       [%expr
-        let f `init = [%e thunk_bench kind e] in
-        if false then Ppx_bench_lib.Export.ignore (f `init ()) else ();
+        let f `init =
+          { Ppx_bench_lib.Benchmark_accumulator.Entry.uncurried = [%e thunk_bench kind e]
+          }
+        in
+        if false then Ppx_bench_lib.Export.ignore ((f `init).uncurried ()) else ();
         Ppx_bench_lib.Benchmark_accumulator.Entry.Regular_thunk f]
   | Some (Indexed (var_name, args)) ->
     apply_to_descr_bench
@@ -153,8 +156,11 @@ let expand_bench_exp ~loc ~path kind index name e =
       name
       [%expr
         let arg_values = [%e args]
-        and f [%p pvar ~loc var_name] = [%e thunk_bench kind e] in
-        if false then Ppx_bench_lib.Export.ignore (f 0 ()) else ();
+        and f [%p pvar ~loc var_name] =
+          { Ppx_bench_lib.Benchmark_accumulator.Entry.uncurried = [%e thunk_bench kind e]
+          }
+        in
+        if false then Ppx_bench_lib.Export.ignore ((f 0).uncurried ()) else ();
         Ppx_bench_lib.Benchmark_accumulator.Entry.Parameterised_thunk
           { Ppx_bench_lib.Benchmark_accumulator.Entry.arg_name =
               [%e estring ~loc var_name]
@@ -174,9 +180,12 @@ let expand_bench_exp ~loc ~path kind index name e =
       name
       [%expr
         let params = [%e args]
-        and f [%p pvar ~loc var_name] = [%e thunk_bench kind e] in
+        and f [%p pvar ~loc var_name] =
+          { Ppx_bench_lib.Benchmark_accumulator.Entry.uncurried = [%e thunk_bench kind e]
+          }
+        in
         if false
-        then Ppx_bench_lib.Export.ignore (f (List.hd_exn params |> snd) ())
+        then Ppx_bench_lib.Export.ignore ((f (List.hd_exn params |> snd)).uncurried ())
         else ();
         Ppx_bench_lib.Benchmark_accumulator.Entry.Parameterised_thunk
           { Ppx_bench_lib.Benchmark_accumulator.Entry.arg_name =

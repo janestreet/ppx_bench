@@ -15,15 +15,18 @@ module Current_libname : sig
 end
 
 module Entry : sig
+  (** This type exists to prevent "staged" functions with no setup from being curried. *)
+  type 'a thunk = { uncurried : unit -> 'a } [@@unboxed]
+
   type ('param, 'a) parameterised_spec =
     { arg_name : string
     ; params : (string * 'param) list
     (** The first coordinate is some string representation of the second coordinate. *)
-    ; thunk : 'param -> unit -> 'a
+    ; thunk : 'param -> 'a thunk
     }
 
   type test_spec =
-    | Regular_thunk : ([ `init ] -> unit -> 'a) -> test_spec
+    | Regular_thunk : ([ `init ] -> 'a thunk) -> test_spec
     | Parameterised_thunk : ('param, 'a) parameterised_spec -> test_spec
 
   type t = private
