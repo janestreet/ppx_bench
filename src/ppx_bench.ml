@@ -1,5 +1,12 @@
 open Ppxlib
+open Stdppx
 open Ast_builder.Default
+
+module List = struct
+  include List
+
+  let partition_map l ~f = partition_map f l
+end
 
 type maybe_drop =
   | Keep
@@ -247,6 +254,41 @@ module E = struct
       (fun a -> a)
   ;;
 
+  let module_name_suffix =
+    Attribute.declare
+      "bench.name_suffix"
+      Attribute.Context.module_binding
+      Ast_pattern.(single_expr_payload __)
+      (fun a -> a)
+  ;;
+
+  let module_name_pattern pat =
+    Ast_pattern.of_func (fun ctx loc mb k ->
+      let name_attrs, other_attrs =
+        List.partition_map mb.pmb_attributes ~f:(fun attr ->
+          match attr with
+          | { attr_name = { txt = "name"; loc = _ }
+            ; attr_payload =
+                PStr
+                  [%str
+                    [%e? { pexp_desc = Pexp_constant (Pconst_string (name, _, _)); _ }]]
+            ; attr_loc = _
+            } -> Left (attr, name)
+          | _ -> Right attr)
+      in
+      match name_attrs with
+      | [] -> Ast_pattern.to_func pat ctx loc mb (k None)
+      | [ (attr, name) ] ->
+        Attribute.mark_as_handled_manually attr;
+        Ast_pattern.to_func
+          pat
+          ctx
+          loc
+          { mb with pmb_attributes = other_attrs }
+          (k (Some name))
+      | _ :: _ :: _ -> Location.raise_errorf ~loc "duplicate @name attribute")
+  ;;
+
   let simple =
     let open Ast_pattern in
     pstr
@@ -262,12 +304,47 @@ module E = struct
        ^:: nil)
   ;;
 
+  let module_ =
+    let open Ast_pattern in
+    pstr
+      (pstr_module
+         (module_binding ~name:__ ~expr:__
+          |> module_name_pattern
+          |> Attribute.pattern module_name_suffix
+          |> map0' ~f:(fun x -> x)
+          |> map ~f:(fun f loc name_suffix attr_name bind_name m ->
+            let name =
+              match attr_name, bind_name with
+              | None, None -> ""
+              | Some name, None | None, Some name -> name
+              | Some attr_name, Some bind_name ->
+                Location.raise_errorf
+                  ~loc
+                  "multiple names; use one of:\n\
+                  \  [module%%bench %s =], or\n\
+                  \  [module%%bench [@name %S] _ =],\n\
+                   but not both."
+                  bind_name
+                  attr_name
+            in
+            f name_suffix name m))
+       ^:: nil)
+  ;;
+
+  let simple_or_module =
+    let open Ast_pattern in
+    map simple ~f:(fun f index name e -> f (`Bench (index, name, e)))
+    ||| map module_ ~f:(fun f suffix name m -> f (`Module (suffix, name, m)))
+  ;;
+
   let bench =
     Extension.declare_inline
       "bench"
       Extension.Context.structure_item
-      simple
-      (expand_bench_exp Bench)
+      simple_or_module
+      (fun ~loc ~path -> function
+      | `Bench (index, name, e) -> expand_bench_exp ~loc ~path Bench index name e
+      | `Module (suffix, name, m) -> expand_bench_module ~loc ~path suffix name m)
   ;;
 
   let bench_fun =
