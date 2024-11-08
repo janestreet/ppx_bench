@@ -1,5 +1,12 @@
 open Ppxlib
+open Stdppx
 open Ast_builder.Default
+
+module List = struct
+  include List
+
+  let partition_map l ~f = partition_map f l
+end
 
 type maybe_drop =
   | Keep
@@ -7,6 +14,8 @@ type maybe_drop =
   | Remove
 
 let drop_benches = ref Keep
+let allow_let_bench_module = ref false
+let allow_let_bench_module_flag = "-bench-allow-let-bench-module"
 
 let () =
   Driver.add_arg
@@ -18,7 +27,11 @@ let () =
     (Unit (fun () -> drop_benches := Deadcode))
     ~doc:
       " Drop inline benchmarks by wrapping them inside deadcode to prevent unused \
-       variable warnings."
+       variable warnings.";
+  Driver.add_arg
+    allow_let_bench_module_flag
+    (Set allow_let_bench_module)
+    ~doc:" Allow [let%bench_module]; otherwise, require newer form [module%bench]."
 ;;
 
 let () =
@@ -141,8 +154,11 @@ let expand_bench_exp ~loc ~path kind index name e =
       (Some e)
       name
       [%expr
-        let f `init = [%e thunk_bench kind e] in
-        if false then Ppx_bench_lib.Export.ignore (f `init ()) else ();
+        let f `init =
+          { Ppx_bench_lib.Benchmark_accumulator.Entry.uncurried = [%e thunk_bench kind e]
+          }
+        in
+        if false then Ppx_bench_lib.Export.ignore ((f `init).uncurried ()) else ();
         Ppx_bench_lib.Benchmark_accumulator.Entry.Regular_thunk f]
   | Some (Indexed (var_name, args)) ->
     apply_to_descr_bench
@@ -153,8 +169,11 @@ let expand_bench_exp ~loc ~path kind index name e =
       name
       [%expr
         let arg_values = [%e args]
-        and f [%p pvar ~loc var_name] = [%e thunk_bench kind e] in
-        if false then Ppx_bench_lib.Export.ignore (f 0 ()) else ();
+        and f [%p pvar ~loc var_name] =
+          { Ppx_bench_lib.Benchmark_accumulator.Entry.uncurried = [%e thunk_bench kind e]
+          }
+        in
+        if false then Ppx_bench_lib.Export.ignore ((f 0).uncurried ()) else ();
         Ppx_bench_lib.Benchmark_accumulator.Entry.Parameterised_thunk
           { Ppx_bench_lib.Benchmark_accumulator.Entry.arg_name =
               [%e estring ~loc var_name]
@@ -174,9 +193,12 @@ let expand_bench_exp ~loc ~path kind index name e =
       name
       [%expr
         let params = [%e args]
-        and f [%p pvar ~loc var_name] = [%e thunk_bench kind e] in
+        and f [%p pvar ~loc var_name] =
+          { Ppx_bench_lib.Benchmark_accumulator.Entry.uncurried = [%e thunk_bench kind e]
+          }
+        in
         if false
-        then Ppx_bench_lib.Export.ignore (f (List.hd_exn params |> snd) ())
+        then Ppx_bench_lib.Export.ignore ((f (List.hd_exn params |> snd)).uncurried ())
         else ();
         Ppx_bench_lib.Benchmark_accumulator.Entry.Parameterised_thunk
           { Ppx_bench_lib.Benchmark_accumulator.Entry.arg_name =
@@ -186,8 +208,16 @@ let expand_bench_exp ~loc ~path kind index name e =
           }]
 ;;
 
-let expand_bench_module ~loc ~path name_suffix name m =
+let expand_bench_module ~is_let_bench_module ~loc ~path name_suffix name m =
   let loc = { loc with loc_ghost = true } in
+  if is_let_bench_module && not !allow_let_bench_module
+  then
+    Location.raise_errorf
+      ~loc
+      "Convert [%s] to [%s] or pass [%s] to ppx driver"
+      "let%bench_module"
+      "module%bench"
+      allow_let_bench_module_flag;
   assert_enabled loc;
   apply_to_descr_bench
     path
@@ -238,6 +268,41 @@ module E = struct
       (fun a -> a)
   ;;
 
+  let module_name_suffix =
+    Attribute.declare
+      "bench.name_suffix"
+      Attribute.Context.module_binding
+      Ast_pattern.(single_expr_payload __)
+      (fun a -> a)
+  ;;
+
+  let module_name_pattern pat =
+    Ast_pattern.of_func (fun ctx loc mb k ->
+      let name_attrs, other_attrs =
+        List.partition_map mb.pmb_attributes ~f:(fun attr ->
+          match attr with
+          | { attr_name = { txt = "name"; loc = _ }
+            ; attr_payload =
+                PStr
+                  [%str
+                    [%e? { pexp_desc = Pexp_constant (Pconst_string (name, _, _)); _ }]]
+            ; attr_loc = _
+            } -> Left (attr, name)
+          | _ -> Right attr)
+      in
+      match name_attrs with
+      | [] -> Ast_pattern.to_func pat ctx loc mb (k None)
+      | [ (attr, name) ] ->
+        Attribute.mark_as_handled_manually attr;
+        Ast_pattern.to_func
+          pat
+          ctx
+          loc
+          { mb with pmb_attributes = other_attrs }
+          (k (Some name))
+      | _ :: _ :: _ -> Location.raise_errorf ~loc "duplicate @name attribute")
+  ;;
+
   let simple =
     let open Ast_pattern in
     pstr
@@ -253,12 +318,48 @@ module E = struct
        ^:: nil)
   ;;
 
+  let module_ =
+    let open Ast_pattern in
+    pstr
+      (pstr_module
+         (module_binding ~name:__ ~expr:__
+          |> module_name_pattern
+          |> Attribute.pattern module_name_suffix
+          |> map0' ~f:(fun x -> x)
+          |> map ~f:(fun f loc name_suffix attr_name bind_name m ->
+            let name =
+              match attr_name, bind_name with
+              | None, None -> ""
+              | Some name, None | None, Some name -> name
+              | Some attr_name, Some bind_name ->
+                Location.raise_errorf
+                  ~loc
+                  "multiple names; use one of:\n\
+                  \  [module%%bench %s =], or\n\
+                  \  [module%%bench [@name %S] _ =],\n\
+                   but not both."
+                  bind_name
+                  attr_name
+            in
+            f name_suffix name m))
+       ^:: nil)
+  ;;
+
+  let simple_or_module =
+    let open Ast_pattern in
+    map simple ~f:(fun f index name e -> f (`Bench (index, name, e)))
+    ||| map module_ ~f:(fun f suffix name m -> f (`Module (suffix, name, m)))
+  ;;
+
   let bench =
     Extension.declare_inline
       "bench"
       Extension.Context.structure_item
-      simple
-      (expand_bench_exp Bench)
+      simple_or_module
+      (fun ~loc ~path -> function
+      | `Bench (index, name, e) -> expand_bench_exp ~loc ~path Bench index name e
+      | `Module (suffix, name, m) ->
+        expand_bench_module ~is_let_bench_module:false ~loc ~path suffix name m)
   ;;
 
   let bench_fun =
@@ -282,7 +383,7 @@ module E = struct
                 ~expr:(pexp_pack __)
               ^:: nil)
            ^:: nil))
-      expand_bench_module
+      (expand_bench_module ~is_let_bench_module:true)
   ;;
 
   let all = [ bench; bench_fun; bench_module ]

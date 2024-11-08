@@ -30,14 +30,16 @@ end
 (* This is the main data structure of this module. An [Entry.t] represents a benchmark
    along with some metadata about is position, arguments etc. *)
 module Entry = struct
+  type 'a thunk = { uncurried : unit -> 'a } [@@unboxed]
+
   type ('param, 'a) parameterised_spec =
     { arg_name : string
     ; params : (string * 'param) list
-    ; thunk : 'param -> unit -> 'a
+    ; thunk : 'param -> 'a thunk
     }
 
   type test_spec =
-    | Regular_thunk : ([ `init ] -> unit -> 'a) -> test_spec
+    | Regular_thunk : ([ `init ] -> 'a thunk) -> test_spec
     | Parameterised_thunk : ('param, 'a) parameterised_spec -> test_spec
 
   type t =

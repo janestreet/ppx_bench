@@ -1,0 +1,5 @@
+(library
+ (name ppx_bench_test)
+ (libraries)
+ (preprocess
+  (pps ppx_bench -bench-allow-let-bench-module)))

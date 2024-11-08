@@ -71,11 +71,11 @@ let%bench_fun ("fold list by function" [@params
 (* We can group benchmarks together into modules and the output of
    [inline_benchmarks_runner] will reflect this grouping.
    {[
-     let%bench_module "Blit tests" = (module struct
+     module%bench [@name "Blit tests"] _ = struct
 
        ..some benchmarks..
 
-     end)
+     end
    ]}
    For examples of all of the above see [bench_gc.ml] and [bench_array.ml] in
    [lib/core_kernel/bench].
@@ -87,11 +87,13 @@ let%bench_fun ("fold list by function" [@params
    benchmarks should have little effect on the execution or module initialization time.
 *)
 
-let%bench_module "trivial module" =
-  (module struct
-    let%bench "trivial" = 3
-  end)
-;;
+module%bench _ = struct
+  let%bench "unnamed" = 2
+end
+
+module%bench [@name "trivial module"] _ = struct
+  let%bench "trivial" = 3
+end
 
 (* You can also use bench inside a functor. Since bench cannot figure out the module name
    (since this is not a well-defined concept), you can use the [@name_suffix] attribute
@@ -107,15 +109,13 @@ end
 module Make (Q : Q) = struct
   let j = Q.j
 
-  let%bench_module ("MakeQ" [@name_suffix sprintf "_%i" j]) =
-    (module struct
-      let%bench "blah" =
-        for _ = 0 to j do
-          ()
-        done
-      ;;
-    end)
-  ;;
+  module%bench [@name_suffix sprintf "_%i" j] MakeQ = struct
+    let%bench "blah" =
+      for _ = 0 to j do
+        ()
+      done
+    ;;
+  end
 end
 
 module _ = Make (struct
