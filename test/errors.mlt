@@ -1,0 +1,11 @@
+let%bench_module "a module" =
+  (module struct
+    let%bench "a microbenchmark" = ()
+  end)
+;;
+
+[%%expect
+  {|
+Line _, characters _-_:
+Error: Convert [let%bench_module] to [module%bench] or pass [-bench-allow-let-bench-module] to ppx driver
+|}]

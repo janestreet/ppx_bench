@@ -14,6 +14,8 @@ type maybe_drop =
   | Remove
 
 let drop_benches = ref Keep
+let allow_let_bench_module = ref false
+let allow_let_bench_module_flag = "-bench-allow-let-bench-module"
 
 let () =
   Driver.add_arg
@@ -25,7 +27,11 @@ let () =
     (Unit (fun () -> drop_benches := Deadcode))
     ~doc:
       " Drop inline benchmarks by wrapping them inside deadcode to prevent unused \
-       variable warnings."
+       variable warnings.";
+  Driver.add_arg
+    allow_let_bench_module_flag
+    (Set allow_let_bench_module)
+    ~doc:" Allow [let%bench_module]; otherwise, require newer form [module%bench]."
 ;;
 
 let () =
@@ -202,8 +208,16 @@ let expand_bench_exp ~loc ~path kind index name e =
           }]
 ;;
 
-let expand_bench_module ~loc ~path name_suffix name m =
+let expand_bench_module ~is_let_bench_module ~loc ~path name_suffix name m =
   let loc = { loc with loc_ghost = true } in
+  if is_let_bench_module && not !allow_let_bench_module
+  then
+    Location.raise_errorf
+      ~loc
+      "Convert [%s] to [%s] or pass [%s] to ppx driver"
+      "let%bench_module"
+      "module%bench"
+      allow_let_bench_module_flag;
   assert_enabled loc;
   apply_to_descr_bench
     path
@@ -344,7 +358,8 @@ module E = struct
       simple_or_module
       (fun ~loc ~path -> function
       | `Bench (index, name, e) -> expand_bench_exp ~loc ~path Bench index name e
-      | `Module (suffix, name, m) -> expand_bench_module ~loc ~path suffix name m)
+      | `Module (suffix, name, m) ->
+        expand_bench_module ~is_let_bench_module:false ~loc ~path suffix name m)
   ;;
 
   let bench_fun =
@@ -368,7 +383,7 @@ module E = struct
                 ~expr:(pexp_pack __)
               ^:: nil)
            ^:: nil))
-      expand_bench_module
+      (expand_bench_module ~is_let_bench_module:true)
   ;;
 
   let all = [ bench; bench_fun; bench_module ]
