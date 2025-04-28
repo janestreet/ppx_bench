@@ -61,8 +61,8 @@ let%bench_fun ("fold list indexed" [@indexed len = [ 1; 10; 100; 1000 ]]) =
 (* Arbitrary arguments can be provided with [@params <var> = <expr>], where <expr> is
    an assoc list of test case names with values. *)
 
-let%bench_fun ("fold list by function" [@params
-                                         f = [ "add", ( + ); "sub", ( - ); "mul", ( * ) ]])
+let%bench_fun ("fold list by function"
+  [@params f = [ "add", ( + ); "sub", ( - ); "mul", ( * ) ]])
   =
   let l = List.init 20 ~f:(fun i -> i) in
   fun () -> (List.fold l ~init:1 ~f : int) |> ignore

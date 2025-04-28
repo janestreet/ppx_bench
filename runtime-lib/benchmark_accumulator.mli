@@ -3,11 +3,10 @@
     retrieved and analyzed using [Core_bench].
 
     This module holds the registered benchmarks in a global hashtable indexed by library
-    name.  We care about the registered benchmarks if and only if the library is being
-    used in a [inline_benchmarks_runner.exe]. To avoid building this hashtable in cases
-    where we will not use it, this module peeks into the commandline args of the running
-    program to decide if the benchmarks should be registered or not.
-*)
+    name. We care about the registered benchmarks if and only if the library is being used
+    in a [inline_benchmarks_runner.exe]. To avoid building this hashtable in cases where
+    we will not use it, this module peeks into the commandline args of the running program
+    to decide if the benchmarks should be registered or not. *)
 
 module Current_libname : sig
   val set : string -> unit
@@ -47,8 +46,7 @@ module Entry : sig
   val get_module_name_opt : t -> string option
 end
 
-(** [add_environment_var] returns true if the benchmarks should be added to the
-    hashtable *)
+(** [add_environment_var] returns true if the benchmarks should be added to the hashtable *)
 val add_environment_var : bool
 
 (** [lookup_lib] returns all the benchmarks from the specified library *)
