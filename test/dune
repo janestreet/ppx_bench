@@ -1,5 +1,5 @@
 (library
  (name ppx_bench_test)
- (libraries)
+ (libraries base bench_config_types)
  (preprocess
-  (pps ppx_bench -bench-allow-let-bench-module)))
+  (pps ppx_bench -bench-allow-let-bench-module ppx_disable_unused_warnings)))

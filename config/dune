@@ -1,0 +1,6 @@
+(library
+ (name bench_config)
+ (public_name ppx_bench.config)
+ (synopsis "Default runtime configuration for ppx_bench")
+ (libraries bench_config_types)
+ (preprocess no_preprocessing))

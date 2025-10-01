@@ -1,4 +1,5 @@
 (library
  (name ppx_bench_lib)
  (public_name ppx_bench.runtime-lib)
+ (libraries ppxlib.stdppx bench_config_types)
  (preprocess no_preprocessing))

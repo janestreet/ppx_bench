@@ -106,6 +106,7 @@ let apply_to_descr_bench
           ~line:[%e line]
           ~startpos:[%e start_pos]
           ~endpos:[%e end_pos]
+          ~config:(module Bench_config)
           [%e more_arg]]
 ;;
 
@@ -118,11 +119,17 @@ type arg_kind =
   | Parameterised of (string * expression)
 
 let thunk_bench kind e =
+  let loc = { e.pexp_loc with loc_ghost = true } in
   match kind with
-  | Bench_fun -> e
-  | Bench ->
-    let loc = { e.pexp_loc with loc_ghost = true } in
-    [%expr fun () -> [%e e]]
+  | Bench_fun ->
+    [%expr
+      let bench_fun = [%e e] in
+      (* Make sure that even if the bench funciton isn't defined as taking its argument at
+         local, if the argument type mode crosses (eg if it's the default of `unit`) it
+         still works in this context. Nobody knows why [:>] works here, but it's nice that
+         it does! *)
+      (bench_fun :> Bench_config.arg -> _)]
+  | Bench -> [%expr fun () -> [%e e]]
 ;;
 
 let enabled () =
@@ -139,9 +146,14 @@ let assert_enabled loc =
       "ppx_bench: extension is disabled as no -inline-test-lib was given"
 ;;
 
-let expand_bench_exp ~loc ~path kind index name e =
+let expand_bench_exp ~loc ~path kind (index, ctx_pat) name e =
   let loc = { loc with loc_ghost = true } in
   assert_enabled loc;
+  let ctx_pat =
+    match ctx_pat with
+    | Some pat -> pat
+    | None -> ppat_var ~loc { txt = gen_symbol ~prefix:"ctx" (); loc }
+  in
   match index with
   | None ->
     (* Here and in the other cases below, because functions given to pa_bench can return
@@ -154,11 +166,18 @@ let expand_bench_exp ~loc ~path kind index name e =
       (Some e)
       name
       [%expr
-        let f `init =
+        let f [%p ctx_pat] =
           { Ppx_bench_lib.Benchmark_accumulator.Entry.uncurried = [%e thunk_bench kind e]
           }
         in
-        if false then Ppx_bench_lib.Export.ignore ((f `init).uncurried ()) else ();
+        if false
+        then
+          Ppx_bench_lib.Export.ignore
+            (Bench_config.around_benchmark ~f:(fun ctx ->
+               Bench_config.around_measurement ctx ~f:(fun arg ->
+                 (f ctx).uncurried arg [@nontail])
+               [@nontail]))
+        else ();
         Ppx_bench_lib.Benchmark_accumulator.Entry.Regular_thunk f]
   | Some (Indexed (var_name, args)) ->
     apply_to_descr_bench
@@ -169,11 +188,18 @@ let expand_bench_exp ~loc ~path kind index name e =
       name
       [%expr
         let arg_values = [%e args]
-        and f [%p pvar ~loc var_name] =
+        and f [%p pvar ~loc var_name] [%p ctx_pat] =
           { Ppx_bench_lib.Benchmark_accumulator.Entry.uncurried = [%e thunk_bench kind e]
           }
         in
-        if false then Ppx_bench_lib.Export.ignore ((f 0).uncurried ()) else ();
+        if false
+        then
+          Ppx_bench_lib.Export.ignore
+            (Bench_config.around_benchmark ~f:(fun ctx ->
+               Bench_config.around_measurement ctx ~f:(fun arg ->
+                 (f 0 ctx).uncurried arg [@nontail])
+               [@nontail]))
+        else ();
         Ppx_bench_lib.Benchmark_accumulator.Entry.Parameterised_thunk
           { Ppx_bench_lib.Benchmark_accumulator.Entry.arg_name =
               [%e estring ~loc var_name]
@@ -193,12 +219,17 @@ let expand_bench_exp ~loc ~path kind index name e =
       name
       [%expr
         let params = [%e args]
-        and f [%p pvar ~loc var_name] =
+        and f [%p pvar ~loc var_name] [%p ctx_pat] =
           { Ppx_bench_lib.Benchmark_accumulator.Entry.uncurried = [%e thunk_bench kind e]
           }
         in
         if false
-        then Ppx_bench_lib.Export.ignore ((f (List.hd_exn params |> snd)).uncurried ())
+        then
+          Ppx_bench_lib.Export.ignore
+            (Bench_config.around_benchmark ~f:(fun ctx ->
+               Bench_config.around_measurement ctx ~f:(fun arg ->
+                 (f (List.hd_exn params |> snd) ctx).uncurried arg [@nontail])
+               [@nontail]))
         else ();
         Ppx_bench_lib.Benchmark_accumulator.Entry.Parameterised_thunk
           { Ppx_bench_lib.Benchmark_accumulator.Entry.arg_name =
@@ -260,6 +291,14 @@ module E = struct
       (fun var values -> Parameterised (var, values))
   ;;
 
+  let context =
+    Attribute.declare
+      "bench.context"
+      Attribute.Context.pattern
+      Ast_pattern.(ppat __ none)
+      (fun var -> var)
+  ;;
+
   let name_suffix =
     Attribute.declare
       "bench.name_suffix"
@@ -310,9 +349,14 @@ module E = struct
          nonrecursive
          (value_binding
             ~pat:
-              (alt
-                 (Attribute.pattern indexed (pstring __))
-                 (Attribute.pattern parameterised (pstring __)))
+              (let label = pstring __ in
+               let with_context = Attribute.pattern context label in
+               let with_index_or_parameterized =
+                 alt
+                   (Attribute.pattern indexed with_context)
+                   (Attribute.pattern parameterised with_context)
+               in
+               pack2 with_index_or_parameterized)
             ~expr:__
           ^:: nil)
        ^:: nil)
@@ -357,7 +401,7 @@ module E = struct
       Extension.Context.structure_item
       simple_or_module
       (fun ~loc ~path -> function
-      | `Bench (index, name, e) -> expand_bench_exp ~loc ~path Bench index name e
+      | `Bench (attrs, name, e) -> expand_bench_exp ~loc ~path Bench attrs name e
       | `Module (suffix, name, m) ->
         expand_bench_module ~is_let_bench_module:false ~loc ~path suffix name m)
   ;;
