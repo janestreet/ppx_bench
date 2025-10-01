@@ -30,19 +30,23 @@ end
 (* This is the main data structure of this module. An [Entry.t] represents a benchmark
    along with some metadata about is position, arguments etc. *)
 module Entry = struct
-  type 'a thunk = { uncurried : unit -> 'a } [@@unboxed]
+  type ('arg, 'r) thunk = { uncurried : 'arg @ local -> 'r } [@@unboxed]
 
-  type ('param, 'a) parameterised_spec =
+  type ('param, 'benchmark_ctx, 'arg, 'r) parameterised_spec =
     { arg_name : string
     ; params : (string * 'param) list
-    ; thunk : 'param -> 'a thunk
+    ; thunk : 'param -> 'benchmark_ctx @ local -> ('arg, 'r) thunk @ local
     }
 
-  type test_spec =
-    | Regular_thunk : ([ `init ] -> 'a thunk) -> test_spec
-    | Parameterised_thunk : ('param, 'a) parameterised_spec -> test_spec
+  type ('benchmark_ctx, 'arg) test_spec =
+    | Regular_thunk :
+        ('benchmark_ctx @ local -> ('arg, 'r) thunk @ local)
+        -> ('benchmark_ctx, 'arg) test_spec
+    | Parameterised_thunk :
+        ('param, 'benchmark_ctx, 'arg, 'r) parameterised_spec
+        -> ('benchmark_ctx, 'arg) test_spec
 
-  type t =
+  type ('benchmark_ctx, 'arg) t =
     { unique_id : int
     ; code : string
     ; type_conv_path : string
@@ -51,9 +55,15 @@ module Entry = struct
     ; line : int
     ; startpos : int
     ; endpos : int
-    ; test_spec : test_spec
+    ; test_spec : ('benchmark_ctx, 'arg) test_spec
+    ; config :
+        (module Bench_config_types.S
+           with type arg = 'arg
+            and type benchmark_ctx = 'benchmark_ctx)
     ; bench_module_name : string option
     }
+
+  type packed = P : ('benchmark_ctx, 'arg) t -> packed [@@unboxed]
 
   let compare t1 t2 = compare t1.unique_id t2.unique_id
 
@@ -90,7 +100,7 @@ let add_environment_var =
 (* This hashtable contains all the benchmarks from all the of libraries that have been
    loaded. At the time the benchmarks are registering themselves with [ppx_bench_lib] we
    don't yet know which libraries will need to be run.  *)
-let libs_to_entries : (string, Entry.t list) Hashtbl.t = Hashtbl.create 10
+let libs_to_entries : (string, Entry.packed list) Hashtbl.t = Hashtbl.create 10
 
 let lookup_rev_lib ~libname =
   try Hashtbl.find libs_to_entries libname with
@@ -119,6 +129,7 @@ let[@inline never] add_bench
   ~line
   ~startpos
   ~endpos
+  ~config
   test_spec
   =
   match get_mode () with
@@ -135,10 +146,11 @@ let[@inline never] add_bench
       ; line
       ; startpos
       ; endpos
+      ; config
       ; test_spec
       }
     in
-    Hashtbl.add libs_to_entries libname (entry :: lookup_rev_lib ~libname)
+    Hashtbl.add libs_to_entries libname (P entry :: lookup_rev_lib ~libname)
 ;;
 
 let[@inline never] add_bench_module
@@ -149,6 +161,7 @@ let[@inline never] add_bench_module
   ~line:_
   ~startpos:_
   ~endpos:_
+  ~config:_
   f
   =
   match get_mode () with

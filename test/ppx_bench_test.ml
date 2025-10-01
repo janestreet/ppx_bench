@@ -1,1 +1,1 @@
-module Let_bench_module = Let_bench_module
+(* This library interface is deliberately empty *)
