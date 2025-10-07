@@ -5,5 +5,5 @@
   (pps ppx_bench)))
 
 (alias
- (name DEFAULT)
+ (name default)
  (deps ppx_bench_sample.ml.pp))
