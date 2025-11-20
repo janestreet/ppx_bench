@@ -6,9 +6,9 @@ open Core
    {[
      let%bench "name" = expr
    ]}
-   In the above, the value of [expr] is ignored.  This creates a benchmark for [expr],
-   that is run using the [inline_benchmarks_runner] script from the command-line. This
-   workflow is similar to that of inline unit tests.
+   In the above, the value of [expr] is ignored. This creates a benchmark for [expr], that
+   is run using the [inline_benchmarks_runner] script from the command-line. This workflow
+   is similar to that of inline unit tests.
 *)
 
 let%bench "add mutable" =
@@ -29,10 +29,10 @@ let%bench "add functional" =
    {[
      let%bench_fun "name" =
        let t = create () in
-       (fun () -> test_something t)
+       fun () -> test_something t
+     ;;
    ]}
-   The function returned on the RHS of [bench_fun] should have type [unit
-   -> unit].
+   The function returned on the RHS of [bench_fun] should have type [unit -> unit].
 
    The reason that the RHS of [bench] can be any non-arrow type, while [bench_fun] and
    [bench_indexed] have constrained types is that [bench] is a special case for writing
@@ -45,9 +45,10 @@ let%bench_fun "fold list" =
   fun () -> (List.fold l ~init:0 ~f:( + ) : int) |> ignore
 ;;
 
-(* One can specify benchmarks that have a variable parameter using an optional [@indexed
-   <var> = <expr>] argument to [bench_fun]. Here <expr> has to be of type [int list]. In
-   the example below, the parameter [len] is bound in the RHS of [bench_indexed].
+(* One can specify benchmarks that have a variable parameter using an optional
+   [@indexed <var> = <expr>] argument to [bench_fun]. Here <expr> has to be of type
+   [int list]. In the example below, the parameter [len] is bound in the RHS of
+   [bench_indexed].
 
    Indexed tests can be useful in highlighting non-linearities in the execution time of
    functions.
@@ -58,8 +59,8 @@ let%bench_fun ("fold list indexed" [@indexed len = [ 1; 10; 100; 1000 ]]) =
   fun () -> (List.fold l ~init:0 ~f:( + ) : int) |> ignore
 ;;
 
-(* Arbitrary arguments can be provided with [@params <var> = <expr>], where <expr> is
-   an assoc list of test case names with values. *)
+(* Arbitrary arguments can be provided with [@params <var> = <expr>], where <expr> is an
+   assoc list of test case names with values. *)
 
 let%bench_fun ("fold list by function"
   [@params f = [ "add", ( + ); "sub", ( - ); "mul", ( * ) ]])
@@ -96,10 +97,9 @@ module%bench [@name "trivial module"] _ = struct
 end
 
 (* You can also use bench inside a functor. Since bench cannot figure out the module name
-   (since this is not a well-defined concept), you can use the [@name_suffix] attribute
-   to append an arbitrary expression (of type string) to the benchmark name.
-   The following modules' benchmark names will look like:
-   [pa_bench_sample.ml:Make:MakeQ_1] blah
+   (since this is not a well-defined concept), you can use the [@name_suffix] attribute to
+   append an arbitrary expression (of type string) to the benchmark name. The following
+   modules' benchmark names will look like: [pa_bench_sample.ml:Make:MakeQ_1] blah
    [pa_bench_sample.ml:Make:MakeQ_1000] blah
 *)
 module type Q = sig
