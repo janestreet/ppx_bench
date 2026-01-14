@@ -99,7 +99,7 @@ let add_environment_var =
 
 (* This hashtable contains all the benchmarks from all the of libraries that have been
    loaded. At the time the benchmarks are registering themselves with [ppx_bench_lib] we
-   don't yet know which libraries will need to be run.  *)
+   don't yet know which libraries will need to be run. *)
 let libs_to_entries : (string, Entry.packed list) Hashtbl.t = Hashtbl.create 10
 
 let lookup_rev_lib ~libname =
@@ -110,8 +110,8 @@ let lookup_rev_lib ~libname =
 let lookup_lib ~libname = List.rev (lookup_rev_lib ~libname)
 
 let force_drop =
-  (* Useful for js_of_ocaml to perform deadcode elimination.
-     see ppx/ppx_inline_test/runtime-lib/runtime.ml [Action.get] for more details *)
+  (* Useful for js_of_ocaml to perform deadcode elimination. see
+     ppx/ppx_inline_test/runtime-lib/runtime.ml [Action.get] for more details *)
   try
     ignore (Sys.getenv "FORCE_DROP_BENCH" : string);
     true
