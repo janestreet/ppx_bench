@@ -40,6 +40,7 @@ module Entry = struct
 
   type ('benchmark_ctx, 'arg) test_spec =
     | Regular_thunk :
+        'benchmark_ctx 'arg 'r.
         ('benchmark_ctx -> ('arg, 'r) thunk)
         -> ('benchmark_ctx, 'arg) test_spec
     | Parameterised_thunk :
