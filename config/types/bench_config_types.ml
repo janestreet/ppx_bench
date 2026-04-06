@@ -19,14 +19,15 @@ module type S = sig
       [let%bench_fun]) and can perform per-benchmark setup and teardown, and also
       initialize the [benchmark_ctx] argument to pass to the [around_measurement] function
       and (optionally) the benchmark itself. *)
-  val around_benchmark : f:(benchmark_ctx @ local -> 'r) @ local once -> 'r
+  val around_benchmark
+    : ('r : value_or_null).
+    f:(benchmark_ctx @ local -> 'r) @ local once -> 'r
 
   (** Function which is invoked around each "batch" of benchmark runs, and provides [arg]
       to the benchmark itself to run. This function can be used to perform per-batch setup
       and teardown, and also provide a local context value (such as a capability) to the
       benchmark. *)
   val around_measurement
-    :  benchmark_ctx @ local
-    -> f:(arg @ local -> 'r) @ local once
-    -> 'r
+    : ('r : value_or_null).
+    benchmark_ctx @ local -> f:(arg @ local -> 'r) @ local once -> 'r
 end

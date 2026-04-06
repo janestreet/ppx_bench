@@ -2,4 +2,4 @@
    [Pervasives] might be shadowed by [Base] for instance. *)
 
 (* It has to be defined as an external so that we get warning 5 properly. *)
-external ignore : _ -> unit = "%ignore"
+external ignore : (_ : value_or_null) -> unit = "%ignore"

@@ -30,7 +30,7 @@ end
 (* This is the main data structure of this module. An [Entry.t] represents a benchmark
    along with some metadata about is position, arguments etc. *)
 module Entry = struct
-  type ('arg, 'r) thunk = { uncurried : 'arg @ local -> 'r } [@@unboxed]
+  type ('arg, 'r : value_or_null) thunk = { uncurried : 'arg @ local -> 'r } [@@unboxed]
 
   type ('param, 'benchmark_ctx, 'arg, 'r) parameterised_spec =
     { arg_name : string
@@ -40,6 +40,7 @@ module Entry = struct
 
   type ('benchmark_ctx, 'arg) test_spec =
     | Regular_thunk :
+        'benchmark_ctx 'arg ('r : value_or_null).
         ('benchmark_ctx @ local -> ('arg, 'r) thunk @ local)
         -> ('benchmark_ctx, 'arg) test_spec
     | Parameterised_thunk :
